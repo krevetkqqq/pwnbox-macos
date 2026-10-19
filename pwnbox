@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# pwnbox — Linux x86-64 окружение (Rosetta) для pwn/reversing/pwndbg.
+#
+# Примеры:
+#   ~/pwn/pwnbox                       # bash внутри контейнера, cwd = текущая папка
+#   ~/pwn/pwnbox gdb ./crackme         # gdb с pwndbg
+#   ~/pwn/pwnbox python3 exploit.py
+#
+# Текущая папка монтируется в /work (rw). Первый запуск подтянет образ.
+set -euo pipefail
+
+IMG="pwnbox:latest"
+
+if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+  echo "[pwnbox] образа нет, собираю (один раз, несколько минут)..." >&2
+  docker build --platform linux/amd64 -t "$IMG" "$(dirname "$0")" >&2
+fi
+
+exec docker run --rm -it \
+  --platform linux/amd64 \
+  --cap-add=SYS_PTRACE \
+  --security-opt seccomp=unconfined \
+  -v "$PWD":/work -w /work \
+  "$IMG" "${@:-/bin/bash}"

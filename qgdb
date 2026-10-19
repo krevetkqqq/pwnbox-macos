@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# qgdb — отладка x86-64 ELF на Apple Silicon (внутри контейнера).
+# qemu-x86_64 поднимает gdbstub, pwndbg/gdb-multiarch к нему подключается.
+#
+# usage: qgdb <binary> [args...]
+set -u
+
+BIN="${1:?usage: qgdb <x86-64-binary> [args...]}"
+shift || true
+
+if [ ! -f "$BIN" ]; then
+  echo "qgdb: нет файла $BIN" >&2
+  exit 1
+fi
+chmod +x "$BIN" 2>/dev/null || true
+
+PORT="${QGDB_PORT:-12345}"
+BIN_ABS="$(readlink -f "$BIN")"
+
+# QGDB_QEMU_ARGS — доп. флаги qemu (например "-L ./sysroot" под чужую libc)
+# shellcheck disable=SC2086
+qemu-x86_64 -g "$PORT" ${QGDB_QEMU_ARGS:-} "$BIN_ABS" "$@" &
+QPID=$!
+trap 'kill "$QPID" 2>/dev/null' EXIT INT TERM
+
+sleep "${QGDB_WAIT:-1}"
+exec gdb-multiarch -q \
+  -ex "set disassembly-flavor intel" \
+  -ex "target remote :$PORT" \
+  "$BIN_ABS"

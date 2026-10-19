@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# qemu-gdb — отладка x86-64 ELF на Apple Silicon через qemu-user + pwndbg.
+#
+# Примеры:
+#   ~/pwn/qemu-gdb ./crackme
+#   ~/pwn/qemu-gdb ./chall arg1 arg2
+#
+# Текущая папка монтируется в /work. Внутри доступна команда `qgdb`.
+set -euo pipefail
+
+IMG="pwnbox-qemu:latest"
+
+if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+  echo "[qemu-gdb] образа нет, собираю (один раз, несколько минут)..." >&2
+  docker build --platform linux/arm64 -f "$(dirname "$0")/Dockerfile.qemu" -t "$IMG" "$(dirname "$0")" >&2
+fi
+
+exec docker run --rm -it \
+  -v "$PWD":/work -w /work \
+  "$IMG" qgdb "${@:-/bin/bash}"
